@@ -58,7 +58,7 @@ You only do this once. Skip if you already have a bot token and chat ID.
 
 1. Open Telegram and search for **@BotFather**.
 2. Send `/newbot` and follow the prompts (choose a name and a username ending in `bot`).
-3. BotFather replies with a token like `123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw`.  
+3. BotFather replies with a token like `123456789:<YOUR_TELEGRAM_BOT_TOKEN>`.  
    **Copy it** — this is your `TELEGRAM_BOT_TOKEN`.
 
 ### 3.2 Get your chat ID
