@@ -86,7 +86,7 @@ Open `.env` and set:
 
 ```dotenv
 # Required
-TELEGRAM_BOT_TOKEN=123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw
+TELEGRAM_BOT_TOKEN=123456789:<YOUR_TELEGRAM_BOT_TOKEN>
 TELEGRAM_CHAT_ID=987654321
 LLM_API_KEY=sk-...your-openai-or-anthropic-key
 
