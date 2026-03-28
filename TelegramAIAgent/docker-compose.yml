@@ -1,0 +1,17 @@
+services:
+  telegram-agent:
+    build: .
+    env_file: .env
+    environment:
+      # Override the API URL to reach EarlyAlertsAPI inside Docker network
+      ALERTS_API_BASE_URL: http://earlyalertsapi-api-1:8000
+    networks:
+      - earlyalertsapi_default
+    restart: unless-stopped
+    volumes:
+      # Mount data folder so CSV paths resolve correctly inside the container
+      - ./data:/app/data:ro
+
+networks:
+  earlyalertsapi_default:
+    external: true

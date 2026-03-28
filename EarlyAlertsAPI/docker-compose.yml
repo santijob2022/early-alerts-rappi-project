@@ -1,0 +1,96 @@
+# ─────────────────────────────────────────────────────────────────
+# EarlyAlertsAPI – Docker Compose
+#
+# Services
+#   api        – FastAPI + uvicorn (1 worker). No scheduler.
+#   scheduler  – Single replica running the APScheduler loop.
+#                Also serves HTTP on an internal port (unused externally).
+#   sqlite-web – Read/write browser UI for alerts.db  → http://localhost:8080
+#
+# DuckDB (forecast_warehouse.duckdb)
+#   No dedicated container — query directly from the api or scheduler container:
+#     docker exec -it earlyalertsapi-api-1 python -c \
+#       "import duckdb; con=duckdb.connect('/data/forecast_warehouse.duckdb'); print(con.execute('SHOW TABLES').fetchall())"
+#
+# Shared volume
+#   appdata   – Persistent SQLite + DuckDB files at /data/
+#
+# Usage
+#   cp .env.example .env        # fill in any overrides
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── API ─────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: earlyalertsapi:latest
+    restart: unless-stopped
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    volumes:
+      - appdata:/data
+    env_file:
+      - .env
+    environment:
+      # Scheduler is OFF in API workers → no duplicate orchestrator runs
+      EARLY_ALERTS_ENABLE_SCHEDULER: "false"
+      EARLY_ALERTS_STORAGE__SQLITE_PATH: /data/alerts.db
+      EARLY_ALERTS_STORAGE__DUCKDB_PATH: /data/forecast_warehouse.duckdb
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8000/api/v1/health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Scheduler ───────────────────────────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: earlyalertsapi:latest
+    restart: unless-stopped
+    # Runs the same uvicorn CMD as the api service, but with
+    # EARLY_ALERTS_ENABLE_SCHEDULER=true so the APScheduler loop starts.
+    # No external port is published – scheduler container is internal only.
+    volumes:
+      - appdata:/data
+    env_file:
+      - .env
+    environment:
+      # Scheduler is ON in this container only
+      EARLY_ALERTS_ENABLE_SCHEDULER: "true"
+      EARLY_ALERTS_STORAGE__SQLITE_PATH: /data/alerts.db
+      EARLY_ALERTS_STORAGE__DUCKDB_PATH: /data/forecast_warehouse.duckdb
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── SQLite browser ───────────────────────────────────────────────
+  sqlite-web:
+    image: coleifer/sqlite-web
+    restart: unless-stopped
+    ports:
+      - "${SQLITE_WEB_PORT:-8081}:8080"
+    volumes:
+      - appdata:/data
+    command: ["sqlite_web", "-H", "0.0.0.0", "-p", "8080", "-r", "-P", "/data/alerts.db"]
+    environment:
+      SQLITE_WEB_PASSWORD: "${SQLITE_WEB_PASSWORD:-admin}"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  appdata:
+    driver: local
